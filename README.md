@@ -1,5 +1,7 @@
 # Franchise API
 
+[![CI](https://github.com/neisonpenadeveloper/franchise-api/actions/workflows/ci.yml/badge.svg)](https://github.com/neisonpenadeveloper/franchise-api/actions/workflows/ci.yml)
+
 API reactiva para gestionar **franquicias**, sus **sucursales** y los **productos** ofertados en cada
 sucursal. Prueba tecnica de desarrollador backend.
 
@@ -102,6 +104,9 @@ se suben al repositorio**.
 mvn test                 # 52 tests
 # Cobertura: target/site/jacoco/index.html
 ```
+
+Cada push a `main` y cada pull request ejecutan los tests y construyen la imagen de Docker en GitHub
+Actions (`.github/workflows/ci.yml`), asi que el estado del badge refleja el de la rama.
 
 ---
 

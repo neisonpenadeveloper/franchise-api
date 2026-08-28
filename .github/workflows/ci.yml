@@ -1,0 +1,53 @@
+name: CI
+
+# Se ejecuta en cada push a main y en cada pull request, para que un cambio que
+# rompa los tests o el Dockerfile se detecte antes de integrarlo.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  tests:
+    name: Compilacion y tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          # Cachea ~/.m2 entre ejecuciones: sin esto cada build vuelve a
+          # descargar todas las dependencias.
+          cache: maven
+
+      # Se usa el wrapper y no una instalacion de Maven del runner, para que la
+      # build use exactamente la misma version que en local.
+      - name: Ejecutar los tests
+        run: ./mvnw -B verify
+
+      - name: Publicar el reporte de cobertura
+        # Tambien cuando los tests fallan: es justo cuando mas se necesita.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-jacoco
+          path: target/site/jacoco
+          if-no-files-found: warn
+
+  docker:
+    name: Imagen de Docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      # Solo se construye, no se publica: verifica que el Dockerfile sigue
+      # siendo valido y que la aplicacion se empaqueta correctamente.
+      - name: Construir la imagen
+        run: docker build -t franchise-api:ci .
