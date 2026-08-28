@@ -1,0 +1,13 @@
+# Todo lo que no necesita el build de la imagen: reduce el contexto que se
+# envia al demonio de Docker y evita invalidar la cache sin motivo.
+target/
+.git/
+.gitignore
+.idea/
+.vscode/
+*.iml
+.env
+*.log
+infra/
+README.md
+docs/
