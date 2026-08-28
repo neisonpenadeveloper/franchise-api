@@ -178,6 +178,18 @@ class FranchiseControllerTest {
     }
 
     @Test
+    @DisplayName("una ruta que no existe responde 404, no 500")
+    void unknownRouteIsNotFound() {
+        // El manejador global tiene un catch-all para Exception; sin un manejador
+        // propio para ResponseStatusException, ese catch-all convertia en 500
+        // cualquier URL equivocada.
+        webClient.get().uri("/ruta-que-no-existe")
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody().jsonPath("$.status").isEqualTo(404);
+    }
+
+    @Test
     @DisplayName("PATCH del nombre de la sucursal responde 200")
     void renameBranch() {
         when(useCase.renameBranch("f1", "b1", "Norte")).thenReturn(Mono.just(sampleFranchise()));

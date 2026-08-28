@@ -13,6 +13,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.support.WebExchangeBindException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebInputException;
 
 import java.util.List;
@@ -70,6 +71,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateKeyException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateKey(DuplicateKeyException exception) {
         return build(HttpStatus.CONFLICT, "DUPLICATE_NAME", "Ya existe una franquicia con ese nombre");
+    }
+
+    /**
+     * Errores que Spring ya emite con un codigo HTTP propio, como una peticion a
+     * una ruta que no existe.
+     *
+     * <p>Sin este manejador el catch-all de abajo los convertiria en 500, y una
+     * URL equivocada se reportaria como una averia del servidor.</p>
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException exception) {
+        HttpStatus status = HttpStatus.resolve(exception.getStatusCode().value());
+        if (status == null) {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        String message = exception.getReason() != null ? exception.getReason() : status.getReasonPhrase();
+        return build(status, status.name(), message);
     }
 
     @ExceptionHandler(Exception.class)
