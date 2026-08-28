@@ -28,7 +28,9 @@ USER spring
 EXPOSE 8080
 
 # wget viene en la imagen alpine y evita instalar curl solo para esto.
+# El puerto se resuelve igual que en la aplicacion, para que el chequeo siga
+# siendo valido cuando la plataforma inyecta PORT.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD wget -q --spider http://localhost:8080/actuator/health || exit 1
+    CMD wget -q --spider "http://localhost:${PORT:-${SERVER_PORT:-8080}}/actuator/health" || exit 1
 
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]

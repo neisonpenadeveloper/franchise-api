@@ -11,7 +11,10 @@ spring:
       auto-index-creation: true
 
 server:
-  port: ${SERVER_PORT:8080}
+  # Las plataformas de despliegue (Render, Railway, Heroku) inyectan el puerto en
+  # PORT y esperan que el proceso escuche justo ahi. SERVER_PORT queda como
+  # alternativa para el entorno local y Compose.
+  port: ${PORT:${SERVER_PORT:8080}}
 
 management:
   endpoints:
