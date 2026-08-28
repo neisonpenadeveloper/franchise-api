@@ -8,6 +8,20 @@ sucursal. Prueba tecnica de desarrollador backend.
 Una franquicia tiene un nombre y una lista de sucursales; una sucursal tiene un nombre y una lista de
 productos; un producto tiene un nombre y una cantidad de stock.
 
+## Demo en vivo
+
+La solucion esta desplegada y funcionando contra MongoDB Atlas:
+
+| | |
+|---|---|
+| API | <https://franchise-api-di1g.onrender.com/api/v1/franchises> |
+| Documentacion interactiva | <https://franchise-api-di1g.onrender.com/swagger-ui.html> |
+| Health | <https://franchise-api-di1g.onrender.com/actuator/health> |
+
+> **Primera peticion lenta:** el plan gratuito de Render suspende el servicio tras 15 minutos sin
+> trafico. La primera llamada despues de ese tiempo tarda unos 50 segundos mientras el contenedor
+> vuelve a arrancar; las siguientes responden con normalidad. No es un problema de la aplicacion.
+
 ---
 
 ## Stack
@@ -22,6 +36,7 @@ productos; un producto tiene un nombre y una cantidad de stock.
 | Tests | JUnit 5, Mockito, StepVerifier, ArchUnit | 52 tests, incluidas 6 reglas de arquitectura |
 | Empaquetado | Docker multi-stage + Docker Compose | Punto extra |
 | Infraestructura | Terraform (MongoDB Atlas) | Punto extra |
+| Despliegue | Render (contenedor Docker) + Atlas | Punto extra: la solucion corre en la nube |
 
 ## Arquitectura
 
@@ -236,6 +251,28 @@ Ese valor es el que se pasa como `MONGODB_URI` al desplegar.
 
 ---
 
+## Despliegue en la nube
+
+```
+  Cliente  ──HTTPS──►  Render (contenedor Docker)  ──mongodb+srv──►  MongoDB Atlas M0
+                       franchise-api                                 franchisedb
+```
+
+- **Aplicacion:** Render construye la imagen a partir del `Dockerfile` del repositorio en cada push a
+  `main`, y el servicio queda descrito como codigo en `render.yaml` (plan, runtime, healthcheck).
+- **Base de datos:** cluster M0 de MongoDB Atlas, con un usuario limitado a `readWrite` sobre
+  `franchisedb`.
+- **Credenciales:** `MONGODB_URI` se declara en `render.yaml` con `sync: false`, de modo que el valor
+  se define una sola vez en el panel de Render y nunca viaja en el repositorio.
+
+La aplicacion escucha el puerto que la plataforma inyecta en `PORT`, con `SERVER_PORT` como
+alternativa local; un puerto fijo dejaria el servicio inaccesible en Render.
+
+Para reproducir el despliegue: crear el cluster con el Terraform de `infra/`, y en Render usar
+`New +` -> `Blueprint` apuntando al repositorio, indicando `MONGODB_URI` cuando lo solicite.
+
+---
+
 ## Estructura del repositorio
 
 ```
@@ -243,6 +280,7 @@ franchise-api/
 ├── src/main/java/...      # Codigo de la aplicacion (dominio / aplicacion / infraestructura)
 ├── src/test/java/...      # Tests unitarios, de API y de arquitectura
 ├── infra/                 # Terraform (MongoDB Atlas)
+├── render.yaml            # Blueprint del servicio en Render
 ├── Dockerfile             # Imagen multi-stage, usuario sin privilegios, healthcheck
 ├── docker-compose.yml     # Mongo + API para desarrollo local
 └── .env.example           # Plantilla de variables de entorno
