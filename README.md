@@ -92,6 +92,20 @@ Sin `MONGODB_URI` definida, la aplicacion usa `mongodb://localhost:27017/franchi
 Copia `.env.example` a `.env` y ajusta los valores. `.env` esta en `.gitignore`: **las credenciales no
 se suben al repositorio**.
 
+Docker Compose lee ese `.env` por si mismo. Al ejecutar con Maven no se lee automaticamente, asi que
+las variables se exportan antes de arrancar:
+
+```bash
+# Linux / macOS
+export $(grep -v '^#' .env | xargs) && mvn spring-boot:run
+
+# Windows PowerShell
+Get-Content .env | Where-Object { $_ -match '^\s*[^#].*=' } | ForEach-Object {
+  $k, $v = $_ -split '=', 2; [Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim())
+}
+mvn spring-boot:run
+```
+
 | Variable | Por defecto | Descripcion |
 |---|---|---|
 | `MONGODB_URI` | `mongodb://localhost:27017/franchisedb` | Conexion a Mongo (local o Atlas) |
