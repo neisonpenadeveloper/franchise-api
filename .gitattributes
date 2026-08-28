@@ -1,0 +1,11 @@
+# Normaliza los finales de linea en el repositorio: LF siempre.
+# Sin esto, en Windows se sube CRLF y el script mvnw deja de funcionar al
+# clonar el proyecto en Linux o macOS.
+* text=auto eol=lf
+
+# Los scripts de Windows si necesitan CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+mvnw text eol=lf
+*.jar binary
