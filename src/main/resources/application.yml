@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: franchise-api
+
+  data:
+    mongodb:
+      # La URI NUNCA se escribe aqui: se inyecta por variable de entorno.
+      # Local  -> mongodb://localhost:27017/franchisedb  (docker-compose)
+      # Atlas  -> mongodb+srv://<user>:<pass>@<cluster>/franchisedb?retryWrites=true&w=majority
+      uri: ${MONGODB_URI:mongodb://localhost:27017/franchisedb}
+      auto-index-creation: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.accenture.franchise: ${LOG_LEVEL:INFO}
