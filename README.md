@@ -33,7 +33,7 @@ La solucion esta desplegada y funcionando contra MongoDB Atlas:
 | Reactividad | Project Reactor (`Mono` / `Flux`) | Sin hilos bloqueados en ningun punto del flujo |
 | Persistencia | **MongoDB** (driver reactivo) | El agregado franquicia -> sucursales -> productos es un documento natural |
 | Documentacion | springdoc-openapi (Swagger UI) | Contrato navegable sin escribirlo a mano |
-| Tests | JUnit 5, Mockito, StepVerifier, ArchUnit | 55 tests, incluidas 6 reglas de arquitectura |
+| Tests | JUnit 5, Mockito, StepVerifier, ArchUnit, Mongo embebido | 60 tests: dominio, casos de uso, contrato HTTP, 6 reglas de arquitectura y 5 de integracion |
 | Empaquetado | Docker multi-stage + Docker Compose | Punto extra |
 | Infraestructura | Terraform (MongoDB Atlas) | Punto extra |
 | Despliegue | Render (contenedor Docker) + Atlas | Punto extra: la solucion corre en la nube |
@@ -135,9 +135,24 @@ mvn spring-boot:run
 ### Tests
 
 ```bash
-mvn test                 # 55 tests
+mvn test                 # 60 tests
 # Cobertura: target/site/jacoco/index.html
 ```
+
+La piramide de tests tiene cuatro niveles:
+
+| Nivel | Que verifica | Como |
+|---|---|---|
+| Dominio | Las reglas de negocio | JUnit puro, sin Spring |
+| Aplicacion | La orquestacion del caso de uso | Mockito sobre el puerto + StepVerifier |
+| Contrato HTTP | Rutas, codigos y traduccion de errores | `@WebFluxTest` con el caso de uso simulado |
+| Integracion | La aplicacion entera contra Mongo | `@SpringBootTest` + Mongo embebido |
+
+El test de integracion cubre lo que ningun mock puede: que el mapeo a documento y de vuelta no
+pierda datos, que las consultas que Spring Data deriva del nombre del metodo hagan lo que prometen,
+que el indice unico exista de verdad y que el bloqueo optimista funcione contra el motor. Arranca un
+`mongod` real en un puerto libre; se prefirio a Testcontainers porque **no exige tener Docker**, asi
+que la build corre igual en local que en CI.
 
 Cada push a `main` y cada pull request ejecutan los tests y construyen la imagen de Docker en GitHub
 Actions (`.github/workflows/ci.yml`), asi que el estado del badge refleja el de la rama.
