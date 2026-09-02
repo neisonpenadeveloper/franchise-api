@@ -14,6 +14,7 @@ La solucion esta desplegada y funcionando contra MongoDB Atlas:
 
 | | |
 |---|---|
+| Consola de demo | <https://franchise-api-di1g.onrender.com/> |
 | API | <https://franchise-api-di1g.onrender.com/api/v1/franchises> |
 | Documentacion interactiva | <https://franchise-api-di1g.onrender.com/swagger-ui.html> |
 | Health | <https://franchise-api-di1g.onrender.com/actuator/health> |
@@ -87,6 +88,7 @@ docker compose up --build
 
 Levanta MongoDB y la API; la API espera a que Mongo responda antes de arrancar.
 
+- Consola de demo: <http://localhost:8080/>
 - API: <http://localhost:8080/api/v1/franchises>
 - Swagger UI: <http://localhost:8080/swagger-ui.html>
 - Health: <http://localhost:8080/actuator/health>
@@ -245,6 +247,22 @@ Respuesta del ultimo llamado:
 
 ---
 
+## Consola de demo
+
+En la raiz (`/`) la aplicacion sirve una pagina que permite ejercitar los siete criterios de
+aceptacion desde el navegador: crear franquicias, agregar sucursales y productos, cambiar el stock,
+renombrar, eliminar y calcular el producto con mas stock por sucursal. Cada accion dispara una
+peticion real y la pagina muestra el metodo, la ruta y el codigo de respuesta, de modo que se ve que
+detras hay una API REST y no datos inventados en el cliente.
+
+Es **un unico archivo estatico** (`src/main/resources/static/index.html`) sin frameworks, sin
+dependencias externas y sin paso de compilacion. Se hizo asi a proposito: la prueba es de backend,
+de modo que la consola no debia convertirse en un segundo proyecto que mantener y desplegar. Al ser
+un recurso estatico que Spring Boot ya publica, no toca la arquitectura hexagonal ni agrega ninguna
+dependencia al `pom.xml`.
+
+---
+
 ## Concurrencia
 
 Una franquicia se modifica leyendo el agregado completo, aplicando la regla en el dominio y volviendo
@@ -328,6 +346,7 @@ Para reproducir el despliegue: crear el cluster con el Terraform de `infra/`, y 
 ```
 franchise-api/
 ├── src/main/java/...      # Codigo de la aplicacion (dominio / aplicacion / infraestructura)
+├── src/main/resources/static/index.html   # Consola de demo (un solo archivo, sin frameworks)
 ├── src/test/java/...      # Tests unitarios, de API y de arquitectura
 ├── infra/                 # Terraform (MongoDB Atlas)
 ├── render.yaml            # Blueprint del servicio en Render
