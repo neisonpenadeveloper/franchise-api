@@ -20,12 +20,26 @@ import java.util.function.UnaryOperator;
  * @param id       identificador de la franquicia; {@code null} mientras no se persiste
  * @param name     nombre de la franquicia
  * @param branches sucursales; nunca nulo, siempre copia defensiva
+ * @param version  version del agregado; {@code null} mientras no se persiste
  */
-public record Franchise(String id, String name, List<Branch> branches) {
+public record Franchise(String id, String name, List<Branch> branches, Long version) {
 
     public Franchise {
         name = Names.require(name, "franchise.name");
         branches = branches == null ? List.of() : List.copyOf(branches);
+    }
+
+    /**
+     * Franquicia que todavia no tiene version asignada.
+     *
+     * <p>La version la lleva el agregado, no el documento de Mongo, porque es la
+     * franquicia entera la que se guarda de una vez: sin ella el caso de uso no
+     * podria detectar que otra operacion escribio primero. Es un dato del
+     * agregado en el sentido de DDD, no una anotacion de persistencia, asi que
+     * el dominio sigue sin conocer el motor de base de datos.</p>
+     */
+    public Franchise(String id, String name, List<Branch> branches) {
+        this(id, name, branches, null);
     }
 
     /**
@@ -40,7 +54,7 @@ public record Franchise(String id, String name, List<Branch> branches) {
     }
 
     public Franchise renameTo(String newName) {
-        return new Franchise(id, newName, branches);
+        return new Franchise(id, newName, branches, version);
     }
 
     public Optional<Branch> findBranch(String branchId) {
@@ -58,7 +72,7 @@ public record Franchise(String id, String name, List<Branch> branches) {
         }
         List<Branch> updated = new ArrayList<>(branches);
         updated.add(branch);
-        return new Franchise(id, name, updated);
+        return new Franchise(id, name, updated, version);
     }
 
     /**
@@ -109,6 +123,6 @@ public record Franchise(String id, String name, List<Branch> branches) {
         List<Branch> updated = branches.stream()
                 .map(b -> b.id().equals(branchId) ? modified : b)
                 .toList();
-        return new Franchise(id, name, updated);
+        return new Franchise(id, name, updated, version);
     }
 }

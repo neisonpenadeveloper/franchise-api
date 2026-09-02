@@ -25,14 +25,16 @@ public final class FranchiseDocumentMapper {
         return new FranchiseDocument(
                 franchise.id(),
                 franchise.name(),
-                franchise.branches().stream().map(FranchiseDocumentMapper::toDocument).toList());
+                franchise.branches().stream().map(FranchiseDocumentMapper::toDocument).toList(),
+                franchise.version());
     }
 
     public static Franchise toDomain(FranchiseDocument document) {
         return new Franchise(
                 document.getId(),
                 document.getName(),
-                nullSafe(document.getBranches()).stream().map(FranchiseDocumentMapper::toDomain).toList());
+                nullSafe(document.getBranches()).stream().map(FranchiseDocumentMapper::toDomain).toList(),
+                document.getVersion());
     }
 
     private static BranchDocument toDocument(Branch branch) {

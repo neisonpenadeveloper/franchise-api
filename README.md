@@ -33,7 +33,7 @@ La solucion esta desplegada y funcionando contra MongoDB Atlas:
 | Reactividad | Project Reactor (`Mono` / `Flux`) | Sin hilos bloqueados en ningun punto del flujo |
 | Persistencia | **MongoDB** (driver reactivo) | El agregado franquicia -> sucursales -> productos es un documento natural |
 | Documentacion | springdoc-openapi (Swagger UI) | Contrato navegable sin escribirlo a mano |
-| Tests | JUnit 5, Mockito, StepVerifier, ArchUnit | 52 tests, incluidas 6 reglas de arquitectura |
+| Tests | JUnit 5, Mockito, StepVerifier, ArchUnit | 55 tests, incluidas 6 reglas de arquitectura |
 | Empaquetado | Docker multi-stage + Docker Compose | Punto extra |
 | Infraestructura | Terraform (MongoDB Atlas) | Punto extra |
 | Despliegue | Render (contenedor Docker) + Atlas | Punto extra: la solucion corre en la nube |
@@ -68,6 +68,11 @@ Decisiones que vale la pena señalar:
   solo orquesta: `findById -> aplicar regla -> save`.
 - **El caso de uso se declara como `@Bean`** en `infrastructure.config.BeanConfiguration` en vez de
   anotarlo con `@Service`, para que las capas internas no tengan ni una anotacion de Spring.
+- **Las escrituras simultaneas no se pisan.** Modificar una franquicia es leerla, aplicar la regla y
+  volver a guardarla; entre esos dos pasos otra peticion puede escribir. El documento lleva una
+  version (`@Version`) que Mongo comprueba al guardar: si otra escritura se adelanto, el guardado
+  falla en lugar de borrar el cambio ajeno y el caso de uso reintenta la operacion completa sobre el
+  estado ya actualizado. Ver [Concurrencia](#concurrencia).
 - **ArchUnit verifica todo lo anterior en cada build.** Un import equivocado rompe los tests.
 
 ---
@@ -130,7 +135,7 @@ mvn spring-boot:run
 ### Tests
 
 ```bash
-mvn test                 # 52 tests
+mvn test                 # 55 tests
 # Cobertura: target/site/jacoco/index.html
 ```
 
@@ -170,7 +175,7 @@ resultante sin una segunda peticion.
 | `200` | Consulta o modificacion correcta |
 | `400` | Datos invalidos (nombre vacio, stock negativo, JSON mal formado) |
 | `404` | La franquicia, sucursal o producto no existe |
-| `409` | Ya existe otro con ese nombre en el mismo ambito |
+| `409` | Ya existe otro con ese nombre en el mismo ambito, o dos escrituras simultaneas chocaron |
 
 Los errores comparten un unico formato:
 
@@ -222,6 +227,36 @@ Respuesta del ultimo llamado:
   }
 ]
 ```
+
+---
+
+## Concurrencia
+
+Una franquicia se modifica leyendo el agregado completo, aplicando la regla en el dominio y volviendo
+a guardarlo. Entre la lectura y la escritura hay una ventana: si dos peticiones agregan un producto a
+la misma sucursal a la vez, las dos leen el mismo documento y la segunda escritura sobrescribe a la
+primera. El producto de la primera desaparece **sin ningun error**, que es la peor forma de fallar.
+
+La solucion es **bloqueo optimista**, no un bloqueo de base de datos:
+
+1. `FranchiseDocument` lleva un campo `@Version`. Spring Data lo incrementa en cada guardado y anade
+   la version esperada a la condicion del update.
+2. Si otra escritura se adelanto, la condicion no encuentra el documento y Mongo falla la escritura
+   en lugar de aplicarla. El adaptador traduce esa excepcion de Spring a
+   `ConcurrentUpdateException`, del dominio, para que las capas internas no conozcan el framework.
+3. `FranchiseUseCase` reintenta la **operacion entera** (hasta 3 veces, con espera creciente y
+   aleatoria de 20/40/80 ms). Al repetirse se vuelve a leer la franquicia, ya con el cambio de la
+   otra peticion incluido, y la regla se aplica sobre el estado actual. La espera es reactiva: no
+   bloquea ningun hilo.
+4. Si el conflicto persiste tras los reintentos, la API responde `409 CONCURRENT_UPDATE` en vez de
+   fingir que la operacion funciono.
+
+Se eligio optimista y no pesimista porque el conflicto es raro: bloquear el documento en cada
+escritura costaria en todas las peticiones para protegerse de un caso que casi nunca ocurre.
+
+El caso duplicado del **nombre de franquicia** se cubre aparte, con el indice unico de Mongo: dos
+creaciones simultaneas pueden pasar las dos la comprobacion previa, y es el indice el que garantiza
+que solo una se guarde. El error resultante se traduce tambien a `409`.
 
 ---
 

@@ -1,5 +1,6 @@
 package com.accenture.franchise.application.usecase;
 
+import com.accenture.franchise.domain.exception.ConcurrentUpdateException;
 import com.accenture.franchise.domain.exception.DuplicateNameException;
 import com.accenture.franchise.domain.exception.NotFoundException;
 import com.accenture.franchise.domain.model.Branch;
@@ -18,11 +19,13 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -184,6 +187,47 @@ class FranchiseUseCaseTest {
                 .assertNext(top -> assertNameAndBranch(top, "Te", "Norte"))
                 .assertNext(top -> assertNameAndBranch(top, "Pan", "Sur"))
                 .verifyComplete();
+    }
+
+    // ---------- Concurrencia ----------
+
+    @Test
+    @DisplayName("una escritura simultanea se reintenta sobre el estado recien leido")
+    void retriesAfterConcurrentUpdate() {
+        // Mono.defer para poder contar suscripciones y no llamadas: al reintentar,
+        // Reactor se resuscribe al Mono que devolvio findById, y un Mono de Spring
+        // Data relanza la consulta a Mongo en cada suscripcion. Es esa relectura
+        // la que hace que la regla se aplique sobre el estado actual.
+        AtomicInteger lecturas = new AtomicInteger();
+        when(repository.findById(FRANCHISE_ID)).thenReturn(
+                Mono.defer(() -> {
+                    lecturas.incrementAndGet();
+                    return Mono.just(franchiseWithBranch());
+                }));
+        when(repository.save(any()))
+                .thenReturn(Mono.error(new ConcurrentUpdateException(FRANCHISE_ID)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        StepVerifier.create(useCase.addProduct(FRANCHISE_ID, "b1", "Cafe", 10))
+                .assertNext(franchise -> assertThat(franchise.branches().get(0).products()).hasSize(1))
+                .verifyComplete();
+
+        assertThat(lecturas).hasValue(2);
+        verify(repository, times(2)).save(any());
+    }
+
+    @Test
+    @DisplayName("si el conflicto persiste se propaga el error en vez de perder el cambio ajeno")
+    void givesUpAfterExhaustingRetries() {
+        when(repository.findById(FRANCHISE_ID)).thenReturn(Mono.just(franchiseWithBranch()));
+        when(repository.save(any())).thenReturn(Mono.error(new ConcurrentUpdateException(FRANCHISE_ID)));
+
+        StepVerifier.create(useCase.addProduct(FRANCHISE_ID, "b1", "Cafe", 10))
+                .expectError(ConcurrentUpdateException.class)
+                .verify();
+
+        // El intento inicial mas los tres reintentos configurados.
+        verify(repository, times(4)).save(any());
     }
 
     private static void assertNameAndBranch(BranchTopProduct top, String productName, String branchName) {
