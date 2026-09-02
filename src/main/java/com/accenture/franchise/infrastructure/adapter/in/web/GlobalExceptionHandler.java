@@ -1,5 +1,6 @@
 package com.accenture.franchise.infrastructure.adapter.in.web;
 
+import com.accenture.franchise.domain.exception.ConcurrentUpdateException;
 import com.accenture.franchise.domain.exception.DuplicateNameException;
 import com.accenture.franchise.domain.exception.InvalidDataException;
 import com.accenture.franchise.domain.exception.NotFoundException;
@@ -42,6 +43,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidDataException.class)
     public ResponseEntity<ErrorResponse> handleInvalidData(InvalidDataException exception) {
         return build(HttpStatus.BAD_REQUEST, "INVALID_DATA", exception.getMessage());
+    }
+
+    /**
+     * Dos escrituras simultaneas chocaron sobre la misma franquicia.
+     *
+     * <p>El caso de uso ya reintenta la operacion; que llegue hasta aqui
+     * significa que el conflicto persistio. Se responde 409 porque el estado del
+     * recurso cambio bajo los pies de la peticion: reintentarla puede funcionar,
+     * mientras que un 500 sugeriria una averia del servidor.</p>
+     */
+    @ExceptionHandler(ConcurrentUpdateException.class)
+    public ResponseEntity<ErrorResponse> handleConcurrentUpdate(ConcurrentUpdateException exception) {
+        return build(HttpStatus.CONFLICT, "CONCURRENT_UPDATE", exception.getMessage());
     }
 
     /** Falla la validacion de los DTO anotados con {@code @Valid}. */

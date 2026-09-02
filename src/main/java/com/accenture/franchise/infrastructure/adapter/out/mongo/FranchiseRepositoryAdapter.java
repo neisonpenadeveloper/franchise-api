@@ -1,8 +1,10 @@
 package com.accenture.franchise.infrastructure.adapter.out.mongo;
 
+import com.accenture.franchise.domain.exception.ConcurrentUpdateException;
 import com.accenture.franchise.domain.model.Franchise;
 import com.accenture.franchise.domain.port.out.FranchiseRepositoryPort;
 import com.accenture.franchise.infrastructure.adapter.out.mongo.mapper.FranchiseDocumentMapper;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -22,10 +24,20 @@ public class FranchiseRepositoryAdapter implements FranchiseRepositoryPort {
         this.repository = repository;
     }
 
+    /**
+     * Guarda la franquicia completa.
+     *
+     * <p>Spring Data compara la version del documento con la almacenada. Si otra
+     * escritura se adelanto lanza {@link OptimisticLockingFailureException}, que
+     * es una excepcion de Spring; aqui se traduce a la del dominio para que las
+     * capas internas puedan reaccionar sin importar nada del framework.</p>
+     */
     @Override
     public Mono<Franchise> save(Franchise franchise) {
         return repository.save(FranchiseDocumentMapper.toDocument(franchise))
-                .map(FranchiseDocumentMapper::toDomain);
+                .map(FranchiseDocumentMapper::toDomain)
+                .onErrorMap(OptimisticLockingFailureException.class,
+                        error -> new ConcurrentUpdateException(franchise.id()));
     }
 
     @Override
